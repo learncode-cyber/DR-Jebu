@@ -1,0 +1,77 @@
+# ------------------------------------------------------------------
+#  Clean URLs + hardening. Requires Apache mod_rewrite (standard on cPanel).
+# ------------------------------------------------------------------
+Options -Indexes
+DirectoryIndex index.php
+ServerSignature Off
+AddType application/manifest+json .webmanifest
+AddDefaultCharset UTF-8
+ErrorDocument 404 /404.php
+ErrorDocument 403 /404.php
+
+<IfModule mod_headers.c>
+  # Remove framework / language fingerprints from HTTP responses
+  Header always unset X-Powered-By
+  Header unset X-Powered-By
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  <FilesMatch "\.(css|js|woff2?|ttf|jpg|jpeg|png|svg|webp|ico)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript image/svg+xml application/json application/xml
+</IfModule>
+
+# Never serve dotfiles, SQL dumps, logs, markdown or config files
+<FilesMatch "(^\.|\.(sql|md|log|ini|sample\.php|bak|sh)$)">
+  Require all denied
+</FilesMatch>
+# ...except the IndexNow key file and well-known folder
+<FilesMatch "^[a-f0-9]{32}\.txt$">
+  Require all granted
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # 1) Hide .php: direct hits on /page.php are redirected to /page (GET/HEAD only)
+  RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+  RewriteCond %{THE_REQUEST} \s/+index\.php[\s?] [NC]
+  RewriteRule ^index\.php$ / [R=301,L]
+  RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+  RewriteCond %{THE_REQUEST} \s/+(.+?)/index\.php[\s?] [NC]
+  RewriteRule ^(.+)/index\.php$ /$1/ [R=301,L]
+  RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+  RewriteCond %{THE_REQUEST} \s/+([^\s?]+?)\.php[\s?] [NC]
+  RewriteRule ^(.+)\.php$ /%1 [R=301,L,NE]
+
+  # 2) Old URLs
+  RewriteRule ^privacy/?$ /privacy-policy [R=301,L]
+  RewriteRule ^blog/feed/?$ /feed.xml [R=301,L]
+  RewriteRule ^(about-us|doctor)/?$ /about [R=301,L]
+
+  # 3) Machine-readable files
+  RewriteRule ^sitemap\.xml$ sitemap.php [L]
+  RewriteRule ^feed\.xml$ feed.php [L]
+  RewriteRule ^robots\.txt$ robots.php [L]
+  RewriteRule ^\.well-known/security\.txt$ security.php [L]
+
+  # 4) Detail pages: /section/slug -> detail script
+  RewriteRule ^blog/([a-z0-9-]+)/?$            blog-single.php?slug=$1 [L,QSA]
+  RewriteRule ^specialties/([a-z0-9-]+)/?$     specialty-detail.php?slug=$1 [L,QSA]
+  RewriteRule ^services/([a-z0-9-]+)/?$        service-detail.php?slug=$1 [L,QSA]
+  RewriteRule ^conditions/([a-z0-9-]+)/?$      condition-detail.php?slug=$1 [L,QSA]
+  RewriteRule ^treatments/([a-z0-9-]+)/?$      treatment-detail.php?slug=$1 [L,QSA]
+  RewriteRule ^procedures/([a-z0-9-]+)/?$      procedure-detail.php?slug=$1 [L,QSA]
+
+  # 5) Extension-less pages: /about -> about.php, /jebu-cp-3hr3f/leads -> .../leads.php
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond $1 !^(app|cron|database)/
+  RewriteCond %{DOCUMENT_ROOT}/$1.php -f
+  RewriteRule ^(.+?)/?$ $1.php [L,QSA]
+</IfModule>
