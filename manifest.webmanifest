@@ -1,0 +1,13 @@
+{
+  "name": "ডাঃ জেবুন্নেসা জেবু",
+  "short_name": "ডাঃ জেবু",
+  "description": "স্ত্রী রোগ, প্রসূতি ও বন্ধ্যাত্ব বিশেষজ্ঞ — অ্যাপয়েন্টমেন্ট ও স্বাস্থ্য তথ্য।",
+  "lang": "bn",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#fdf5f9",
+  "theme_color": "#801B4B",
+  "icons": [
+    { "src": "/assets/img/doctor-portrait.jpg", "sizes": "960x807", "type": "image/jpeg", "purpose": "any" }
+  ]
+}
