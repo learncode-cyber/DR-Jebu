@@ -1,0 +1,13 @@
+# Live secrets: never commit. Copy app/config.sample.php to app/config.php on the server.
+app/config.php
+app/config.keep.php
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+
+node_modules/
+.next/
+backend/venv/
