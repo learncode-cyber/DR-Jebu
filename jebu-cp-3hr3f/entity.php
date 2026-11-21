@@ -49,6 +49,15 @@ if (is_post()) {
             flash('err', 'আইটেম ও কাজ (প্রকাশ/খসড়া) নির্বাচন করুন।');
             redirect(a_url('entity', $back));
         }
+        // Blog publishing needs the doctor's approval (blog_doctor_approve); unapproved posts stay as they are.
+        if ($key === 'blog' && $do === 'publish') {
+            blog_migrate_v109();
+            $approvedIds = array_values(array_filter($ids, static fn(int $i): bool => blog_can_publish($i)));
+            $skipped = count($ids) - count($approvedIds);
+            if ($skipped > 0) { flash('err', $skipped . 'টি লেখা ডাক্তারের অনুমোদন ছাড়া প্রকাশ হয়নি।'); }
+            $ids = $approvedIds;
+            if (!$ids) { redirect(a_url('entity', $back)); }
+        }
         $ph = implode(',', array_fill(0, count($ids), '?'));
         $now = date('Y-m-d H:i:s');
         $rowsBulk = q_all('SELECT * FROM ' . $T . ' WHERE id IN (' . $ph . ')', $ids);
@@ -119,8 +128,12 @@ if (is_post()) {
                 $cur = (string) ($old[$n] ?? '');
                 if (!empty($_POST[$n . '__remove'])) { $cur = ''; }
                 $err = '';
-                $new = save_upload($n . '__file', $err);
+                $altIn = trim((string) ($_POST[$n . '__alt'] ?? ''));
+                $new = save_upload($n . '__file', $err, $altIn, trim((string) ($_POST['title'] ?? '')));
                 if ($err !== '') { $errors[] = $err; }
+                if ($new === null && $cur !== '' && $altIn !== '') {
+                    img_meta_save($cur, $altIn, 'manual'); // only the alt text was changed
+                }
                 $vals[$n] = $new ?? $cur;
                 break;
             case 'select':
@@ -150,6 +163,13 @@ if (is_post()) {
     if ($key === 'blog' && !$errors) {
         if ($vals['status'] === 'published' && empty($vals['published_at'])) { $vals['published_at'] = date('Y-m-d H:i:s'); }
         if ($vals['author_name'] === '') { $vals['author_name'] = setting('doctor_name_bn'); }
+        blog_migrate_v109();
+        if (!blog_cover_ok((string) $vals['cover_image'], (string) $vals['cover_source'])) {
+            $errors[] = 'কভার ছবির উৎস বেছে নিন (নিজের লাইব্রেরি / লাইসেন্সকৃত / AI শিক্ষামূলক)।';
+        }
+        if ($vals['status'] === 'published' && !($id && blog_can_publish($id))) {
+            $errors[] = 'ডাক্তারের অনুমোদন ছাড়া প্রকাশ করা যাবে না। "ব্লগ খসড়া ও অনুমোদন" পাতায় আগে অনুমোদন দিন।';
+        }
     }
     if ($errors) {
         foreach ($errors as $er) { flash('err', $er); }
@@ -233,8 +253,29 @@ if ($a === 'edit') {
       case 'relation_id': $opts = q_all('SELECT id, title FROM ' . $f['table'] . ' ORDER BY sort_order, id'); ?><select name="<?= h($n) ?>"><option value="">নেই</option><?php foreach ($opts as $o): ?><option value="<?= (int) $o['id'] ?>" <?= (int) $v === (int) $o['id'] ? 'selected' : '' ?>><?= h($o['title']) ?></option><?php endforeach; ?></select><?php break;
       case 'datetime': ?><input type="datetime-local" name="<?= h($n) ?>" value="<?= h($v ? date('Y-m-d\TH:i', (int) strtotime((string) $v)) : '') ?>"><?php break;
       case 'image': ?>
-        <?php if ($v): ?><span class="thumb"><img src="<?= h(img_url((string) $v)) ?>" alt=""> <label class="check"><input type="checkbox" name="<?= h($n) ?>__remove" value="1"> ছবি সরান</label></span><?php endif; ?>
-        <input type="file" name="<?= h($n) ?>__file" accept="image/jpeg,image/png,image/webp,image/gif"><?php break;
+        <?php $curAlt = $v ? img_alt_for((string) $v) : ''; ?>
+        <?php if ($v): ?><span class="thumb"><img src="<?= h(img_url((string) $v)) ?>" alt="<?= h($curAlt) ?>"> <label class="check"><input type="checkbox" name="<?= h($n) ?>__remove" value="1"> ছবি সরান</label></span><?php endif; ?>
+        <input type="file" name="<?= h($n) ?>__file" accept="image/*,.heic,.heif,.tif,.tiff,.avif" data-img-file="<?= h($n) ?>">
+        <span class="img-preview" id="prev-<?= h($n) ?>" hidden><img alt=""></span>
+        <label class="img-alt-label">ছবির বিবরণ (Alt Text, SEO)<input type="text" name="<?= h($n) ?>__alt" value="<?= h($curAlt) ?>" maxlength="200" data-img-alt="<?= h($n) ?>" data-auto="<?= h($curAlt) ?>" placeholder="ছবি দিলে শিরোনাম থেকে আপনা-আপনি ভরবে; চাইলে বদলান"></label>
+        <?php if (!defined('IMG_ALT_JS')): define('IMG_ALT_JS', 1); ?>
+        <script>
+        (function(){
+          var title = document.querySelector('[name="title"]');
+          document.querySelectorAll('[data-img-file]').forEach(function(file){
+            var n = file.getAttribute('data-img-file');
+            var alt = document.querySelector('[data-img-alt="' + n + '"]');
+            var prev = document.getElementById('prev-' + n);
+            file.addEventListener('change', function(){
+              var f = file.files && file.files[0];
+              if (!f) { prev.hidden = true; return; }
+              if (/^image\//.test(f.type)) { prev.querySelector('img').src = URL.createObjectURL(f); prev.hidden = false; }
+              if (alt && (alt.value === '' || alt.value === alt.getAttribute('data-auto')) && title) { alt.value = title.value.trim(); alt.setAttribute('data-auto', alt.value); }
+            });
+          });
+        })();
+        </script>
+        <?php endif; ?><?php break;
       default: ?><input type="text" name="<?= h($n) ?>" value="<?= h((string) $v) ?>" <?= $f['type'] === 'slug' ? 'pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="auto-generated if left blank (Latin titles only)"' : '' ?> <?= !empty($f['max']) ? 'maxlength="' . (int) $f['max'] . '"' : '' ?>><?php endswitch; ?>
   </label>
   <?php endif; ?>

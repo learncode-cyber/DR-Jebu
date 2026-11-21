@@ -12,6 +12,7 @@ function tr_badge(string $text, string $tone): string {
         'ok' => 'background:#e8f6ee;color:#14633d',
         'off' => 'background:#f3f4f6;color:#555',
         'warn' => 'background:#fff4e5;color:#8a4b00',
+        'bad' => 'background:#fdecec;color:#9b1c1c',
     ];
     return '<span style="display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:.8rem;' . ($styles[$tone] ?? $styles['off']) . '">' . h($text) . '</span>';
 }

@@ -16,7 +16,7 @@ $desc = $page['meta_description'] !== '' ? $page['meta_description'] : $page['sh
 $path = '/page/' . $page['slug'];
 $schema = [[
     '@context' => 'https://schema.org', '@type' => 'WebPage', 'name' => $page['title'], 'url' => abs_url($path),
-    'inLanguage' => 'bn', 'publisher' => ['@type' => 'Organization', 'name' => setting('doctor_name_bn')],
+    'inLanguage' => site_lang(), 'publisher' => ['@type' => 'Organization', 'name' => doctor_schema_name()],
 ] + ($desc !== '' ? ['description' => $desc] : [])];
 page_start([
     'title' => $title, 'description' => $desc, 'path' => $path, 'image' => $page['cover_image'],
@@ -27,7 +27,7 @@ page_hero('', $page['title'], $page['short_desc'], [[$page['title'], null]]);
 <section class="section"><div class="wrap">
   <article class="prose cq-content">
 <?php if ($page['cover_image'] !== ''): ?>
-    <div class="cover"><img src="<?= h(img_url($page['cover_image'])) ?>" alt="<?= h($page['title']) ?>" width="1200" height="600" loading="lazy"></div>
+    <div class="cover"><?= img_picture(img_url($page['cover_image']), $page['title'], 0, 0, '(max-width:980px) 100vw, 900px') ?></div>
 <?php endif; ?>
     <?= rich_render((string) $page['body']) ?>
   </article>

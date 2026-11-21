@@ -2,6 +2,23 @@
 #  Clean URLs + hardening. Requires Apache mod_rewrite (standard on cPanel).
 # ------------------------------------------------------------------
 Options -Indexes
+# One canonical host over HTTPS: www.example -> example, http -> https (301). Keeps search signals on one address.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+</IfModule>
+# Image uploads: up to 20 MB per file (the hosting plan must allow it too)
+<IfModule mod_php.c>
+  php_value upload_max_filesize 20M
+  php_value post_max_size 22M
+</IfModule>
+<IfModule php_module>
+  php_value upload_max_filesize 20M
+  php_value post_max_size 22M
+</IfModule>
 DirectoryIndex index.php
 ServerSignature Off
 AddType application/manifest+json .webmanifest
@@ -21,6 +38,8 @@ ErrorDocument 503 /error.php?code=503
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  # HTTPS only: browsers remember to use https for a year (also on the www redirect response)
+  Header always set Strict-Transport-Security "max-age=31536000"
   <FilesMatch "\.(css|js|woff2?|ttf|jpg|jpeg|png|svg|webp|ico)$">
     Header set Cache-Control "public, max-age=2592000"
   </FilesMatch>
@@ -41,6 +60,9 @@ ErrorDocument 503 /error.php?code=503
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+
+  # 0) English pages: /en/... serves the same page in English (the language comes from the URL)
+  RewriteRule ^en(?:/(.*))?$ /$1?__l=en [QSA,L]
 
   # 1) Hide .php: direct hits on /page.php are redirected to /page (GET/HEAD only)
   RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$

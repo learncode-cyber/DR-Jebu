@@ -108,6 +108,11 @@ function is_post(): bool { return ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST';
 
 function flash(string $type, string $msg): void { $_SESSION['flash'][] = [$type, $msg]; }
 
+/** Icon class for the sidebar: 'b:name' = Font Awesome brand logo (fa-brands), any other name = solid icon. */
+function adm_ic(string $icon): string {
+    return str_starts_with($icon, 'b:') ? 'fa-brands fa-' . substr($icon, 2) : 'fa-solid ' . $icon;
+}
+
 /** Sidebar model. Section label '' = no heading. Item: label, icon, href, show, subs (dropdown sub-links). */
 function admin_nav_sections(): array {
     $icons = [
@@ -135,10 +140,37 @@ function admin_nav_sections(): array {
         ['label' => 'সিস্টেম ও এসইও', 'items' => [
             ['label' => 'মিডিয়া লাইব্রেরি', 'icon' => 'fa-photo-film', 'href' => 'media', 'show' => can('content'), 'subs' => []],
             ['label' => 'কনটেন্ট SEO চেকার', 'icon' => 'fa-spell-check', 'href' => 'seo-content', 'show' => can('content'), 'subs' => []],
+            ['label' => 'কিওয়ার্ড পরিকল্পনা', 'icon' => 'fa-magnifying-glass', 'href' => 'seo-keywords', 'show' => can('content'), 'subs' => []],
+            ['label' => 'সিস্টেম মনিটর', 'icon' => 'fa-heart-pulse', 'href' => 'system', 'show' => can('settings'), 'subs' => []],
+            ['label' => 'Gemini এআই', 'icon' => 'fa-microchip', 'href' => 'gemini', 'show' => can('settings'), 'subs' => []],
             ['label' => 'সাইট সেটিংস', 'icon' => 'fa-gear', 'href' => 'settings', 'show' => can('settings'), 'subs' => []],
-            ['label' => 'Meta Ads ট্র্যাকিং', 'icon' => 'fa-meta', 'href' => 'tracking-meta', 'show' => can('settings'), 'subs' => []],
-            ['label' => 'Google Ads ট্র্যাকিং', 'icon' => 'fa-google', 'href' => 'tracking-google', 'show' => can('settings'), 'subs' => []],
-            ['label' => 'Google Analytics ট্র্যাকিং', 'icon' => 'fa-chart-line', 'href' => 'tracking-ga4', 'show' => can('settings'), 'subs' => []],
+            ['label' => 'সোশ্যাল মিডিয়া', 'icon' => 'fa-share-nodes', 'href' => '', 'show' => can('settings'), 'subs' => [
+                ['href' => 'fb-overview', 'label' => 'Dashboard', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-settings', 'label' => 'Settings & Integration', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-guide', 'label' => 'Setup Guide', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-posts', 'label' => 'Posts Overview', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-queue', 'label' => 'Publishing Queue', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-publishing', 'label' => 'Publishing Settings', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-comments', 'label' => 'Comments Overview', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-inbox', 'label' => 'Messenger', 'icon' => 'b:facebook-messenger', 'create' => false],
+                ['href' => 'fb-analytics', 'label' => 'Analytics', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-ai', 'label' => 'AI Automation', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-webhooks', 'label' => 'Webhooks', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-preflight', 'label' => 'Permissions & Diagnostics', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-errors', 'label' => 'Errors & Logs', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'fb-sources', 'label' => 'Facebook পোস্ট (উৎস থেকে)', 'icon' => 'b:facebook', 'create' => false],
+                ['href' => 'medical-sources', 'label' => 'অনুমোদিত মেডিকেল উৎস', 'icon' => 'b:book', 'create' => false],
+                ['href' => 'blog-drafts', 'label' => 'ব্লগ খসড়া ও অনুমোদন', 'icon' => 'b:book', 'create' => false],
+                ['href' => 'linkedin', 'label' => 'LinkedIn পোস্ট', 'icon' => 'b:linkedin', 'create' => false],
+                ['href' => 'tiktok', 'label' => 'TikTok ভিডিও', 'icon' => 'b:tiktok', 'create' => false],
+            ]],
+            ['label' => 'ট্র্যাকিং', 'icon' => 'fa-crosshairs', 'href' => '', 'show' => can('settings'), 'subs' => [
+                ['href' => 'tracking-hub', 'label' => 'সব ট্র্যাকিং ও টেস্ট', 'icon' => 'fa-crosshairs', 'create' => false],
+                ['href' => 'tracking-gtm', 'label' => 'Google Tag Manager (GTM)', 'icon' => 'b:google', 'create' => false],
+                ['href' => 'tracking-meta', 'label' => 'Meta Ads ট্র্যাকিং', 'icon' => 'b:meta', 'create' => false],
+                ['href' => 'tracking-google', 'label' => 'Google Ads ট্র্যাকিং', 'icon' => 'b:google', 'create' => false],
+                ['href' => 'tracking-ga4', 'label' => 'Google Analytics ট্র্যাকিং', 'icon' => 'fa-chart-line', 'create' => false],
+            ]],
             ['label' => 'ইউজার', 'icon' => 'fa-users-gear', 'href' => 'users', 'show' => can('users'), 'subs' => []],
             ['label' => 'লগ', 'icon' => 'fa-clipboard-list', 'href' => 'logs', 'show' => can('logs'), 'subs' => []],
             ['label' => 'SEO স্বাস্থ্য', 'icon' => 'fa-chart-line', 'href' => 'seo', 'show' => can('settings'), 'subs' => []],
@@ -179,7 +211,7 @@ function admin_head(string $title): void {
     $cur = trim((string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH), '/');
     ?>
 <!doctype html>
-<html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="bn" data-theme="clinic"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title><?= h($title) ?> | অ্যাডমিন</title>
 <?php if ($u): ?><meta name="csrf-token" content="<?= h(csrf_token()) ?>"><?php endif; ?>
 <script src="https://cdn.tailwindcss.com"></script>
@@ -197,7 +229,7 @@ if (window.tailwind) { tailwind.config = {
 </script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap">
-<script>try{var __t=localStorage.getItem('adm-theme');if(__t){document.documentElement.setAttribute('data-theme',__t);}}catch(e){}</script>
+<script>try{var __t=localStorage.getItem('adm-theme');if(__t&&__t!=='mono'){document.documentElement.setAttribute('data-theme',__t);}}catch(e){}</script>
 <link rel="stylesheet" href="<?= h(asset('assets/css/admin.css')) ?>">
 <script src="<?= h(asset('assets/js/admin.js')) ?>" defer></script>
 </head><body>
@@ -227,17 +259,17 @@ if (window.tailwind) { tailwind.config = {
     foreach ($visible as $it):
         if (!$it['subs']):
             $on = admin_nav_active($it['href']); ?>
-      <a href="<?= h('/' . ADMIN_PATH_URL() . ($it['href'] !== '' ? '/' . $it['href'] : '')) ?>" title="<?= h($it['label']) ?>" class="adm-item<?= $on ? ' on' : '' ?>"<?= $on ? ' aria-current="page"' : '' ?>><i class="fa-solid <?= h($it['icon']) ?> adm-ic" aria-hidden="true"></i><span class="adm-lbl"><?= h($it['label']) ?></span></a>
+      <a href="<?= h('/' . ADMIN_PATH_URL() . ($it['href'] !== '' ? '/' . $it['href'] : '')) ?>" title="<?= h($it['label']) ?>" class="adm-item<?= $on ? ' on' : '' ?>"<?= $on ? ' aria-current="page"' : '' ?>><i class="<?= h(adm_ic($it['icon'])) ?> adm-ic" aria-hidden="true"></i><span class="adm-lbl"><?= h($it['label']) ?></span></a>
 <?php   else:
             $anyActive = false;
             foreach ($it['subs'] as $sb) { $anyActive = $anyActive || admin_nav_active($sb['href']); }
             $cid = 'c' . substr(md5($it['label']), 0, 8); ?>
       <div class="adm-cat<?= $anyActive ? ' open' : '' ?>">
-        <button type="button" class="adm-cat-btn" data-adm="toggle-cat" aria-expanded="<?= $anyActive ? 'true' : 'false' ?>" aria-controls="<?= h($cid) ?>" title="<?= h($it['label']) ?>"><i class="fa-solid <?= h($it['icon']) ?> adm-ic" aria-hidden="true"></i><span class="adm-lbl"><?= h($it['label']) ?></span><i class="fa-solid fa-chevron-down adm-chev adm-lbl" aria-hidden="true"></i></button>
+        <button type="button" class="adm-cat-btn" data-adm="toggle-cat" aria-expanded="<?= $anyActive ? 'true' : 'false' ?>" aria-controls="<?= h($cid) ?>" title="<?= h($it['label']) ?>"><i class="<?= h(adm_ic($it['icon'])) ?> adm-ic" aria-hidden="true"></i><span class="adm-lbl"><?= h($it['label']) ?></span><i class="fa-solid fa-chevron-down adm-chev adm-lbl" aria-hidden="true"></i></button>
         <div id="<?= h($cid) ?>" class="adm-tree">
 <?php   foreach ($it['subs'] as $sb):
             $on = admin_nav_active($sb['href']); ?>
-          <a href="<?= h('/' . ADMIN_PATH_URL() . '/' . $sb['href']) ?>" class="adm-item adm-sub<?= $sb['create'] ? ' adm-create' : '' ?><?= $on ? ' on' : '' ?>"<?= $on ? ' aria-current="page"' : '' ?>><i class="fa-solid <?= h($sb['icon']) ?> adm-ic-sm" aria-hidden="true"></i><span class="adm-lbl"><?= h($sb['label']) ?></span></a>
+          <a href="<?= h('/' . ADMIN_PATH_URL() . '/' . $sb['href']) ?>" class="adm-item adm-sub<?= $sb['create'] ? ' adm-create' : '' ?><?= $on ? ' on' : '' ?>"<?= $on ? ' aria-current="page"' : '' ?>><i class="<?= h(adm_ic($sb['icon'])) ?> adm-ic-sm" aria-hidden="true"></i><span class="adm-lbl"><?= h($sb['label']) ?></span></a>
 <?php   endforeach; ?>
         </div>
       </div>
@@ -273,9 +305,10 @@ endforeach; ?>
       </div>
       <div class="flex items-center gap-2">
         <div class="adm-themes" role="group" aria-label="থিম বাছাই">
+          <button type="button" class="adm-sw" data-adm="theme" data-theme-name="clinic" style="background:#4a58d4;color:#4a58d4" aria-label="ক্লিনিক থিম" title="ক্লিনিক (ডিফল্ট)"></button>
           <button type="button" class="adm-sw" data-adm="theme" data-theme-name="maroon" style="background:#832839;color:#832839" aria-label="ম্যারন থিম" title="ম্যারন" aria-pressed="false"></button>
-          <button type="button" class="adm-sw" data-adm="theme" data-theme-name="ocean" style="background:#1d4ed8;color:#1d4ed8" aria-label="ওশন থিম" title="ওশন" aria-pressed="false"></button>
           <button type="button" class="adm-sw" data-adm="theme" data-theme-name="emerald" style="background:#047857;color:#047857" aria-label="এমেরাল্ড থিম" title="এমেরাল্ড" aria-pressed="false"></button>
+          <button type="button" class="adm-sw" data-adm="theme" data-theme-name="mono" style="background:#171717;color:#171717" aria-label="ব্ল্যাক ও হোয়াইট থিম" title="ব্ল্যাক ও হোয়াইট" aria-pressed="false"></button>
         </div>
 <?php if (can('leads.view')): ?>
         <button type="button" data-adm="open-ai" aria-controls="ai-drawer" class="border-0 flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 active:scale-95 transition">

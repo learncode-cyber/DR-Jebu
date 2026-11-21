@@ -30,16 +30,16 @@
   }
 
   // ---------- Theme switcher ----------
-  var THEMES = ['maroon', 'ocean', 'emerald'];
+  var THEMES = ['maroon', 'emerald', 'mono'];
   function applyTheme(name) {
-    if (THEMES.indexOf(name) < 0) { name = 'maroon'; }
+    if (THEMES.indexOf(name) < 0) { name = 'mono'; }
     document.documentElement.setAttribute('data-theme', name);
     try { localStorage.setItem('adm-theme', name); } catch (e) { /* private mode: keep it for this page only */ }
     $$('[data-theme-name]').forEach(function (b) {
       b.setAttribute('aria-pressed', b.getAttribute('data-theme-name') === name ? 'true' : 'false');
     });
   }
-  applyTheme(document.documentElement.getAttribute('data-theme') || 'maroon');
+  applyTheme(document.documentElement.getAttribute('data-theme') || 'mono');
 
   // ---------- AI drawer ----------
   var drawer = $('#ai-drawer');

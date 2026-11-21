@@ -21,7 +21,7 @@ foreach ($cats as $cat => $list): ?>
   <h2 class="display" style="font-size:1.5rem;margin:1.6rem 0 1rem"><?= h($cat) ?></h2>
   <div class="gallery-grid">
 <?php foreach ($list as $r): ?>
-    <figure class="gallery-item reveal"><a href="<?= h($r['image']) ?>" target="_blank" rel="noopener"><img src="<?= h($r['image']) ?>" alt="<?= h($r['title']) ?>" loading="lazy" width="800" height="600"></a><figcaption><strong><?= h($r['title']) ?></strong><?php if ((string) $r['caption'] !== ''): ?><span><?= h($r['caption']) ?></span><?php endif; ?></figcaption></figure>
+    <figure class="gallery-item reveal"><a href="<?= h($r['image']) ?>" target="_blank" rel="noopener"><?= img_picture($r['image'], $r['title'], 0, 0, '(max-width:520px) 100vw, (max-width:860px) 50vw, 33vw') ?></a><figcaption><strong><?= h($r['title']) ?></strong><?php if ((string) $r['caption'] !== ''): ?><span><?= h($r['caption']) ?></span><?php endif; ?></figcaption></figure>
 <?php endforeach; ?>
   </div>
 <?php endforeach; ?>

@@ -9,6 +9,14 @@
   var history = [], busy = false, speakOn = false;
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   var canSpeak = 'speechSynthesis' in window;
+  // Language and messages come from the widget (data-*), so they follow the site language. Bangla is the fallback.
+  var cfg = pop.dataset, LANG = cfg.lang || 'bn-BD';
+  var T = {
+    greeting: cfg.greeting || 'আসসালামু আলাইকুম! আমি ডাঃ জেবুন্নেসা জেবুর এআই সহকারী। আমি অ্যাপয়েন্টমেন্ট নিতে, চেম্বারের তথ্য জানাতে বা সাধারণ প্রশ্নের উত্তর দিতে পারি। আপনার কী দরকার?',
+    booked: cfg.booked || '✔ আপনার অ্যাপয়েন্টমেন্ট অনুরোধ নম্বর #{id} নেওয়া হয়েছে। চেম্বার থেকে ফোনে সময় নিশ্চিত করা হবে।',
+    err: cfg.err || 'সমস্যা হয়েছে। অনুগ্রহ করে অ্যাপয়েন্টমেন্ট বা হোয়াটসঅ্যাপ ব্যবহার করুন।',
+    net: cfg.net || 'ইন্টারনেট সংযোগে সমস্যা। অনুগ্রহ করে আবার চেষ্টা করুন।'
+  };
 
   function bubble(role, text) {
     var d = document.createElement('div');
@@ -23,7 +31,7 @@
     try {
       window.speechSynthesis.cancel();
       var u = new SpeechSynthesisUtterance(text);
-      u.lang = 'bn-BD';
+      u.lang = LANG;
       window.speechSynthesis.speak(u);
     } catch (e) { /* ignore */ }
   }
@@ -31,7 +39,7 @@
     pop.hidden = false;
     openBtn.setAttribute('aria-expanded', 'true');
     if (!log.childElementCount) {
-      bubble('bot', 'আসসালামু আলাইকুম! আমি ডাঃ জেবুন্নেসা জেবুর এআই সহকারী। আমি অ্যাপয়েন্টমেন্ট নিতে, চেম্বারের তথ্য জানাতে বা সাধারণ প্রশ্নের উত্তর দিতে পারি। আপনার কী দরকার?');
+      bubble('bot', T.greeting);
     }
     setTimeout(function () { input.focus(); }, 50);
   }
@@ -53,7 +61,7 @@
   if (SR && mic) {
     mic.hidden = false;
     var rec = new SR();
-    rec.lang = 'bn-BD';
+    rec.lang = LANG;
     rec.interimResults = false;
     rec.maxAlternatives = 1;
     rec.onresult = function (e) {
@@ -88,13 +96,13 @@
         bubble('bot', j.reply);
         history.push({ role: 'assistant', text: j.reply });
         say(j.reply);
-        if (j.lead_id) { bubble('bot', '✔ আপনার অ্যাপয়েন্টমেন্ট অনুরোধ নম্বর #' + j.lead_id + ' নেওয়া হয়েছে। চেম্বার থেকে ফোনে সময় নিশ্চিত করা হবে।'); }
+        if (j.lead_id) { bubble('bot', T.booked.replace('{id}', String(j.lead_id))); }
       } else {
-        bubble('bot', (j && j.error) || 'সমস্যা হয়েছে। অনুগ্রহ করে অ্যাপয়েন্টমেন্ট বা হোয়াটসঅ্যাপ ব্যবহার করুন।');
+        bubble('bot', (j && j.error) || T.err);
       }
     }).catch(function () {
       wait.remove();
-      bubble('bot', 'ইন্টারনেট সংযোগে সমস্যা। অনুগ্রহ করে আবার চেষ্টা করুন।');
+      bubble('bot', T.net);
     }).then(function () { busy = false; send.disabled = false; input.focus(); });
   }
 

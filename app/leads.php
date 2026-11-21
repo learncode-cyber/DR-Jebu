@@ -26,16 +26,16 @@ function lead_create(array $in, string $kind = 'appointment'): array {
     $age = mb_substr($age, 0, 3);
 
     if (mb_strlen($name) < 2) {
-        return ['ok' => false, 'error' => 'নাম লিখুন (কমপক্ষে ২ অক্ষর)।'];
+        return ['ok' => false, 'error' => tr('নাম লিখুন (কমপক্ষে ২ অক্ষর)।', 'Please enter your name (at least 2 characters).')];
     }
     if (!preg_match('/^\+?[0-9]{8,15}$/', $phone)) {
-        return ['ok' => false, 'error' => 'সঠিক মোবাইল নম্বর দিন।'];
+        return ['ok' => false, 'error' => tr('সঠিক মোবাইল নম্বর দিন।', 'Please enter a valid mobile number.')];
     }
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        return ['ok' => false, 'error' => 'ইমেইল ঠিকানাটি সঠিক নয়।'];
+        return ['ok' => false, 'error' => tr('ইমেইল ঠিকানাটি সঠিক নয়।', 'The email address is not valid.')];
     }
     if ($kind === 'contact' && mb_strlen($clip('message', 1500)) < 3) {
-        return ['ok' => false, 'error' => 'আপনার বার্তাটি লিখুন।'];
+        return ['ok' => false, 'error' => tr('আপনার বার্তাটি লিখুন।', 'Please write your message.')];
     }
 
     $ip = client_ip();
@@ -43,7 +43,7 @@ function lead_create(array $in, string $kind = 'appointment'): array {
     if ($ip !== '') {
         $since = date('Y-m-d H:i:s', time() - 600);
         if ((int) q_val('SELECT COUNT(*) FROM leads WHERE ip = ? AND created_at >= ?', [$ip, $since]) >= 5) {
-            return ['ok' => false, 'error' => 'অল্প সময়ে অনেকগুলো অনুরোধ এসেছে। কিছুক্ষণ পর আবার চেষ্টা করুন বা সরাসরি ফোন করুন।'];
+            return ['ok' => false, 'error' => tr('অল্প সময়ে অনেকগুলো অনুরোধ এসেছে। কিছুক্ষণ পর আবার চেষ্টা করুন বা সরাসরি ফোন করুন।', 'Too many requests in a short time. Please try again later or call us directly.')];
         }
     }
 
@@ -124,6 +124,22 @@ function lead_enqueue_notifications(int $id): void {
     }
 }
 
+/** Queues the confirmation e-mail to the patient for a booked time (only the admin triggers this). */
+function lead_enqueue_patient_confirmation(int $id, string $when): void {
+    $lead = q_one('SELECT * FROM leads WHERE id = ?', [$id]);
+    if (!$lead || empty($lead['email']) || !filter_var((string) $lead['email'], FILTER_VALIDATE_EMAIL) || MAIL_FROM === '') {
+        return;
+    }
+    $phone = setting('phone_display');
+    $body = 'প্রিয় ' . $lead['name'] . ",\n\n"
+        . "আপনার অ্যাপয়েন্টমেন্ট নিশ্চিত করা হয়েছে।\n"
+        . 'সময়: ' . $when . "\n\n"
+        . 'চেম্বারে আসার আগে কোনো প্রশ্ন থাকলে ' . $phone . " নম্বরে যোগাযোগ করুন।\n"
+        . 'এই বার্তাটি স্বয়ংক্রিয়ভাবে পাঠানো হয়েছে।';
+    q_exec('INSERT INTO notifications (lead_id, channel, recipient, subject, payload) VALUES (?,?,?,?,?)',
+        [$id, 'email', (string) $lead['email'], 'আপনার অ্যাপয়েন্টমেন্ট নিশ্চিত হয়েছে', $body]);
+}
+
 function notification_send(array $n): array {
     if ($n['channel'] === 'email') {
         if (MAIL_FROM === '') {
@@ -185,6 +201,9 @@ function notifications_dispatch(int $limit = 20): int {
         } else {
             q_exec("UPDATE notifications SET status = 'failed', attempts = attempts + 1, last_error = ? WHERE id = ?", [mb_substr($err, 0, 300), $n['id']]);
             lead_event((int) $n['lead_id'], 'notify_failed_' . $n['channel'], mb_substr($err, 0, 200));
+            if ((int) $n['attempts'] + 1 >= 5) {
+                system_alert('error', 'notify-' . $n['channel'], 'নোটিফিকেশন ৫ বার চেষ্টা করেও যায়নি (লিড #' . $n['lead_id'] . '): ' . mb_substr($err, 0, 200));
+            }
         }
     }
     return $sent;
@@ -207,9 +226,9 @@ function notifications_dispatch_after_response(): void {
 /** Bangladesh mobile → international digits (8801XXXXXXXXX), or null when the number is not a valid BD mobile. */
 function bd_whatsapp_number(string $phone): ?string {
     $d = preg_replace('/\D+/', '', $phone) ?? '';
-    if (str_starts_with($d, '880')) { $d = substr($d, 3); }
+    if (str_starts_with($d, '880')) { $d = '0' . substr($d, 3); } // 8801XXXX -> 01XXXX before checking
     if (preg_match('/^01[3-9]\d{8}$/', $d) !== 1) { return null; }
-    return '880' . $d;
+    return '880' . substr($d, 1); // drop the local leading 0: 01712345678 -> 8801712345678
 }
 
 /** Prefilled WhatsApp confirmation message for a serial request. */

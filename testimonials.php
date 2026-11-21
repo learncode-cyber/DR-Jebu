@@ -11,15 +11,15 @@ if ($rows) {
         }
     }
     if ($reviews) {
-        $schema[] = ['@context' => 'https://schema.org', '@type' => 'Physician', 'name' => setting('doctor_name_bn'), 'url' => abs_url('/'), 'review' => $reviews];
+        $schema[] = ['@context' => 'https://schema.org', '@type' => 'Physician', 'name' => doctor_schema_name(), 'url' => abs_url(lang_path('/')), 'review' => $reviews];
     }
 }
-page_start(['title' => 'রোগীদের অভিজ্ঞতা', 'description' => 'রোগী ও পরিবারের অভিজ্ঞতা ও মতামত।', 'path' => '/testimonials', 'breadcrumb' => [['রোগীদের অভিজ্ঞতা', null]], 'schema' => $schema]);
+page_start(['title' => 'রোগীদের অভিজ্ঞতা', 'description' => 'রোগী ও পরিবারের অভিজ্ঞতা ও মতামত। খুলনায় ডাঃ জেবুন্নেসা জেবুর চিকিৎসা নিয়ে রোগীদের বাস্তব অভিজ্ঞতা পড়ুন।', 'path' => '/testimonials', 'breadcrumb' => [['রোগীদের অভিজ্ঞতা', null]], 'schema' => $schema]);
 page_hero('Testimonials', 'রোগীদের অভিজ্ঞতা', 'যাঁরা আমাদের সেবা নিয়েছেন, তাঁদের নিজের কথায়।', [['রোগীদের অভিজ্ঞতা', null]]);
 ?>
 <section class="section"><div class="wrap">
 <?php if (!$rows): ?>
-  <div class="empty"><p>রোগীদের মতামত শীঘ্রই এখানে প্রকাশ করা হবে।</p><a class="btn btn-primary" href="/appointment">অ্যাপয়েন্টমেন্ট নিন</a></div>
+  <div class="empty"><p><?= h(ui('রোগীদের মতামত শীঘ্রই এখানে প্রকাশ করা হবে।')) ?></p><a class="btn btn-primary" href="/appointment"><?= h(ui('অ্যাপয়েন্টমেন্ট নিন')) ?></a></div>
 <?php else: ?>
   <div class="grid c3">
 <?php foreach ($rows as $i => $r): ?>
@@ -27,7 +27,7 @@ page_hero('Testimonials', 'রোগীদের অভিজ্ঞতা', 'য
 <?php if (!empty($r['rating'])): ?><div class="stars" aria-label="<?= (int) $r['rating'] ?> out of 5"><?= str_repeat('★', max(1, min(5, (int) $r['rating']))) ?></div><?php endif; ?>
       <blockquote>“<?= h($r['quote']) ?>”</blockquote>
       <figcaption class="who">
-<?php if (!empty($r['photo'])): ?><img src="<?= h(img_url($r['photo'])) ?>" alt="" loading="lazy"><?php endif; ?>
+<?php if (!empty($r['photo'])): ?><?= img_picture(img_url($r['photo']), '', 0, 0, '120px') ?><?php endif; ?>
         <span><strong><?= h($r['name']) ?></strong><br><small class="note"><?= h($r['context']) ?></small></span>
       </figcaption>
     </figure>

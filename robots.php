@@ -12,6 +12,10 @@ if (!defined('APP_ENV') || APP_ENV === 'production') {
     echo "Disallow: /app/\n";
     echo "Disallow: /cron/\n";
     echo "Disallow: /database/\n\n";
+    // AI search and answer engines may read the public pages (GEO); admin and internals stay closed
+    foreach (['GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot', 'PerplexityBot', 'Google-Extended', 'Applebot-Extended', 'Bingbot'] as $bot) {
+        echo "User-agent: {$bot}\nAllow: /\nDisallow: /jebu-cp-3hr3f/\n\n";
+    }
     echo 'Sitemap: ' . abs_url('/sitemap.xml') . "\n";
 } else {
     echo "User-agent: *\nDisallow: /\n";

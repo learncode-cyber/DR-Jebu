@@ -1,4 +1,7 @@
 /* ===== Self-hosted Tiro Bangla (fallback if the Google Fonts CDN is blocked) ===== */
+@font-face{font-family:'Redaction 10 Local';src:url('/assets/fonts/Redaction10-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+2000-206F,U+20AC,U+2122}
+@font-face{font-family:'Redaction 10 Local';src:url('/assets/fonts/Redaction10-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+2000-206F,U+20AC,U+2122}
+@font-face{font-family:'Redaction 10 Local';src:url('/assets/fonts/Redaction10-Italic.ttf') format('truetype');font-weight:400;font-style:italic;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+2000-206F,U+20AC,U+2122}
 @font-face{font-family:'Tiro Bangla Local';src:url('/assets/fonts/TiroBangla-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:'Tiro Bangla Local';src:url('/assets/fonts/TiroBangla-Italic.ttf') format('truetype');font-weight:400;font-style:italic;font-display:swap}
 
@@ -13,12 +16,13 @@
   --radius:28px; --radius-sm:16px; --pill:999px;
   --shadow:0 18px 50px -18px rgba(74,15,46,.35); --shadow-soft:0 10px 30px -14px rgba(74,15,46,.25);
   --font-display:'Tiro Bangla','Tiro Bangla Local',serif;
-  --font-body:'Hind Siliguri','Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-body:'Redaction 10 Local','Hind Siliguri','Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   /* hero morphing colours (animated by GSAP) */
   --bg1:#801B4B; --bg2:#3d0a24; --glow:#f8bbd0;
 }
 *,*::before,*::after{box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+html.latin-system{--font-body:'Hind Siliguri','Inter',system-ui,-apple-system,'Segoe UI',sans-serif}
 body{margin:0;font-family:var(--font-body);color:var(--ink);background:var(--paper);line-height:1.75;font-size:17px;-webkit-font-smoothing:antialiased}
 img,svg,video,iframe{max-width:100%;display:block}
 a{color:var(--plum);text-decoration:none}
@@ -172,7 +176,7 @@ a.card:hover .card-img img{transform:scale(1.06)}
 @media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}}
 .stat{padding:1.3rem;border-radius:var(--radius-sm);background:#fff;border:1px solid var(--line);text-align:center}
 .stat b{display:block;font-family:var(--font-display);font-weight:500;font-size:clamp(2.4rem,4vw,3.4rem);line-height:1.05;color:var(--plum)}
-.stat span{font-size:.9rem;color:var(--muted)}
+.stat > span{font-size:.9rem;color:var(--muted)} /* label only: the number is a span inside b */
 
 /* ===== Prose (blog / entity detail) ===== */
 .prose{max-width:46rem}
@@ -458,9 +462,6 @@ a, button, .card, .svc-card, .sa-ai, .sa-appt, .sa-wa { -webkit-tap-highlight-co
 .agency-credit{margin:.9rem 0 0;font-size:.78rem;line-height:1.6;opacity:.85;text-align:center}
 .agency-credit a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .agency-credit a:focus-visible{outline:2px solid currentColor;outline-offset:2px;border-radius:3px}
-/* keep the footer credit clear of the fixed sticky buttons on phones */
-
-
 /* ---- 404 page with animated woman doctor ---- */
 .nf-wrap{text-align:center;display:flex;flex-direction:column;align-items:center;gap:.4rem;padding:2rem 0 3rem}
 .nf-art{width:min(260px,70vw);margin:0 auto .6rem}
@@ -525,18 +526,10 @@ a, button, .card, .svc-card, .sa-ai, .sa-appt, .sa-wa { -webkit-tap-highlight-co
   .mg-desc{font-size:.8rem}
 }
 
-/* ---- Draggable sticky buttons (position is saved per browser) ---- */
-.sa-grip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:44px;height:20px;border-radius:10px;background:rgba(74,15,46,.55);box-shadow:0 6px 16px -8px rgba(0,0,0,.45);cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;align-self:flex-end}
-.sa-grip i{display:block;width:16px;height:2px;border-radius:2px;background:rgba(255,255,255,.85)}
-.sticky-actions.dragging{cursor:grabbing}
-.sticky-actions.dragging a,.sticky-actions.dragging button{pointer-events:none}
-@media (max-width: 720px) { .sa-grip{width:36px;height:18px} }
 
 /* ---- Agency credit: both lines on one centred row ---- */
 .agency-credit .ac-sep{margin:0 .35rem;opacity:.7}
 
-/* Whole button group can be dragged (taps still open the buttons) */
-.sticky-actions.dragging{cursor:grabbing}
 
 /* Rich-text blocks in blog posts and pages (.cq-content). New classes only: existing styles are unchanged. */
 .cq-content img{max-width:100%;height:auto;border-radius:10px}
@@ -576,3 +569,95 @@ a, button, .card, .svc-card, .sa-ai, .sa-appt, .sa-wa { -webkit-tap-highlight-co
 @keyframes insIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @media (max-width:640px){.ins-pop{left:12px;right:12px;bottom:12px;width:auto}}
 @media (prefers-reduced-motion:reduce){.ins-pop{animation:none}}
+
+/* Language switch (বাংলা / EN) in the header */
+.lang-switch{display:inline-flex;align-items:center;border:1.5px solid var(--plum);border-radius:999px;overflow:hidden;margin-right:.5rem;flex:none}
+.lang-switch a{padding:.28rem .7rem;font:600 .82rem var(--font-body);color:var(--plum-dark);text-decoration:none;line-height:1.3}
+.lang-switch a[aria-current="true"]{background:var(--plum);color:#fff}
+.lang-switch a{display:inline-flex;align-items:center;gap:.4rem}
+.lang-switch .lang-flag{width:1.25em;height:.84em;border-radius:2px;flex:none;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.is-home .site-header:not(.scrolled) .lang-switch{border-color:#fff}
+.is-home .site-header:not(.scrolled) .lang-switch a{color:#fff}
+.is-home .site-header:not(.scrolled) .lang-switch a[aria-current="true"]{background:#fff;color:var(--plum-dark)}
+.site-nav a,.sub-btn,.nav-cta .btn{white-space:nowrap}
+
+/* v66: header layout + readability */
+:root{--ink:#3a2530}
+@media(min-width:981px){
+  .site-nav{order:2;margin-left:auto}
+  .lang-switch{order:3;margin:0 0 0 .6rem}
+}
+@media(max-width:980px){
+  .lang-switch{margin:0 .25rem 0 auto}
+  .site-nav>ul>li>a.active,.site-nav .has-sub.active>.sub-btn{color:#fff!important;background:var(--plum)}
+}
+
+/* v67: floating buttons: compact on phones, no motion on small screens (battery, less covering content) */
+@media (max-width: 620px) {
+  .sticky-actions { right: 10px; bottom: 12px; gap: .45rem; }
+  .sticky-actions a, .sticky-actions button.sa-ai { width: 46px; height: 46px; }
+  .sticky-actions svg { width: 46px; height: 46px; padding: 11px; }
+  .sa-appt, .sa-wa, .sa-ai { animation: none; }
+  .sticky-actions a, .sticky-actions button.sa-ai { box-shadow: 0 6px 16px -6px rgba(0,0,0,.45); }
+}
+@media (min-width: 621px) {
+  .sticky-actions { right: 18px; bottom: 18px; }
+}
+
+/* v68: phones/tablets: doctor photo first, then the headline and text, then the service cards */
+@media(max-width:980px){
+  .hero-stage{display:contents}
+  .hero-stage .orb-wrap{order:1;margin:.6rem auto 0}
+  .hero-copy{order:2}
+  .hero-stage .switcher{order:3}
+}
+@media(max-width:980px){.hero-title{min-height:0}}
+
+/* v69: responsive <picture> wrappers take no layout space; the <img> keeps the parent's sizing rules */
+picture{display:contents}
+
+/* v69: on laptops/tablets the floating buttons are icon-only so they do not cover the article text */
+@media (min-width: 621px) and (max-width: 1100px) {
+  .sticky-actions a { padding: 0; width: 50px; height: 50px; justify-content: center; border-radius: 50%; }
+  .sticky-actions a span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .sticky-actions svg { width: 50px; height: 50px; padding: 13px; background: none; }
+}
+
+/* Plain menu: only the menu names, no coloured boxes. The current page is shown with an underline. */
+.site-nav>ul>li>a:not(.btn),.sub-btn{background:none!important;box-shadow:none!important;border-radius:0!important;margin:0 .45rem;padding:.5rem .2rem}
+.site-nav>ul>li>a:not(.btn):hover,.sub-btn:hover{background:none!important;color:inherit;text-decoration:underline!important;text-decoration-thickness:2px;text-underline-offset:7px}
+.site-nav>ul>li>a.active:not(.btn),.site-nav .has-sub.active>.sub-btn{background:none!important;box-shadow:none!important;color:var(--plum)!important;font-weight:700;text-decoration:underline!important;text-decoration-thickness:2px;text-underline-offset:7px}
+.is-home .site-header:not(.scrolled) .site-nav>ul>li>a.active:not(.btn),.is-home .site-header:not(.scrolled) .site-nav .has-sub.active>.sub-btn{color:#fff!important}
+
+/* Stats: same body font as the rest of the site and a moderate size. The count-up animation stays. */
+.stat b{font-family:var(--font-body);font-weight:600;font-size:clamp(1.8rem,3vw,2.3rem);line-height:1.15}
+.stat .sfx{font-family:var(--font-body);font-size:1.1rem;font-weight:600;margin-left:.1rem}
+
+/* Statistics: animated cards (rise in, count up, bar fills, hover lift) with a matching icon per card */
+.stat{position:relative;overflow:hidden;transition:transform .5s ease,box-shadow .5s ease,border-color .3s}
+.js-stats .stat:not(.in){opacity:0}
+.stat.in{animation:statIn .7s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:var(--d,0ms)}
+@keyframes statIn{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:none}}
+.stat.in:hover{transform:translateY(-6px);box-shadow:0 20px 40px -18px rgba(74,15,46,.28);border-color:var(--line)}
+.stat-ico{display:flex;align-items:center;justify-content:center;width:48px;height:48px;margin:0 auto .8rem;border-radius:14px;background:var(--pink);border:1px solid var(--line);color:var(--plum);transition:background .3s,color .3s,transform .3s}
+.stat-ico svg{width:24px;height:24px}
+.stat:hover .stat-ico{background:var(--plum);color:#fff;transform:scale(1.08) rotate(3deg)}
+.stat-wm{position:absolute;right:-14px;bottom:-14px;width:96px;height:96px;color:var(--plum);opacity:.05;pointer-events:none;transition:transform .5s,opacity .5s}
+.stat-wm svg{width:100%;height:100%}
+.stat:hover .stat-wm{transform:scale(1.1);opacity:.08}
+.stat>b,.stat>span{position:relative;z-index:1}
+.stat .sfx{display:inline-block;transition:transform .3s ease}
+.stat .sfx.pop{transform:scale(1.45)}
+.stat-bar{display:block;width:64px;height:4px;margin:1.1rem auto 0;border-radius:99px;background:var(--pink);overflow:hidden}
+.stat-bar em{display:block;height:100%;width:0;border-radius:99px;background:var(--plum);transition:width 1.1s ease .25s}
+.stat.in .stat-bar em{width:100%}
+@media (max-width:700px){.stat-wm{width:76px;height:76px}}
+@media (prefers-reduced-motion: reduce){.stat.in{animation:none}.stat,.stat-ico,.stat-wm,.stat-bar em{transition:none}}
+
+/* v100: the three floating buttons (AI, appointment, WhatsApp) keep ONE look at every screen width:
+   same round size, same spacing, same position. Text labels are kept for screen readers only. */
+.sticky-actions{right:14px;bottom:16px;gap:.6rem}
+.sticky-actions a.sa-appt,.sticky-actions a.sa-wa,.sticky-actions button.sa-ai{display:flex;align-items:center;justify-content:center;gap:0;width:54px;height:54px;min-width:0;min-height:0;padding:0;border:0;border-radius:50%;box-sizing:border-box}
+.sticky-actions a.sa-appt span,.sticky-actions a.sa-wa span,.sticky-actions button.sa-ai span{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.sticky-actions a.sa-appt svg,.sticky-actions a.sa-wa svg,.sticky-actions button.sa-ai svg{width:54px;height:54px;padding:14px;background:none;flex:none}
+@media (max-width: 620px) { .sticky-actions{right:10px;bottom:12px} }

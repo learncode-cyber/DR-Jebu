@@ -3,6 +3,18 @@ declare(strict_types=1);
 require __DIR__ . '/_admin.php';
 $u = require_login();
 
+if (can('settings')) {
+    cron_guard(); // warns on Telegram when the cron job has stopped
+}
+if (is_post() && can('leads.view')) {
+    csrf_require();
+    if (($_POST['act'] ?? '') === 'wa_done') {
+        appt_schema();
+        q_exec('UPDATE leads SET wa_done_at = ? WHERE id = ?', [date('Y-m-d H:i:s'), (int) ($_POST['id'] ?? 0)]);
+        flash('ok', 'রিমাইন্ডার পাঠানো হিসেবে চিহ্নিত হয়েছে।');
+    }
+    redirect(a_url(''));
+}
 $stats = ['new' => 0, 'today' => 0, 'week' => 0, 'total' => 0, 'failed' => 0];
 $byStatus = $recent = $top404 = [];
 if (can('leads.view')) {
@@ -49,7 +61,26 @@ if (can('logs')) {
     $activity = q_all('SELECT a.action, a.detail, a.created_at, u.name FROM activity_log a LEFT JOIN users u ON u.id = a.user_id ORDER BY a.id DESC LIMIT 12');
 }
 admin_head('ড্যাশবোর্ড');
+$dueWa = can('leads.view') ? appt_wa_due() : [];
 ?>
+<?php if ($dueWa): ?>
+<div class="panel"><h2>রিমাইন্ডার দিন (আগামী ২৪ ঘণ্টা) <small class="muted"><?= count($dueWa) ?> জন</small></h2>
+  <p class="muted">"হোয়াটসঅ্যাপে পাঠান" চাপলে WhatsApp-এ বার্তা আগে থেকে লেখা অবস্থায় খুলবে। পাঠানোর পর "পাঠানো হয়েছে" চাপুন।</p>
+  <div class="tbl-wrap"><table><thead><tr><th>অ্যাপয়েন্টমেন্ট</th><th>রোগী</th><th>ফোন</th><th></th></tr></thead><tbody>
+  <?php foreach ($dueWa as $d): $waUrl = appt_wa_url($d); ?>
+    <tr>
+      <td><?= h(date('d.m H:i', strtotime((string) $d['appt_at']))) ?></td>
+      <td><a href="<?= h(a_url('lead', ['id' => (int) $d['id']])) ?>"><?= h((string) $d['name']) ?></a></td>
+      <td><?= h((string) $d['phone']) ?></td>
+      <td>
+        <?php if ($waUrl): ?><a class="btn" target="_blank" rel="noopener" href="<?= h($waUrl) ?>">হোয়াটসঅ্যাপে পাঠান</a><?php else: ?><small class="muted">বৈধ নম্বর নেই</small><?php endif; ?>
+        <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="act" value="wa_done"><input type="hidden" name="id" value="<?= (int) $d['id'] ?>"><button class="btn ghost" type="submit">পাঠানো হয়েছে</button></form>
+      </td>
+    </tr>
+  <?php endforeach; ?>
+  </tbody></table></div>
+</div>
+<?php endif; ?>
 <?php if (can('leads.view')): ?>
 <div class="cards">
   <a class="stat" href="<?= h(a_url('leads', ['status' => 'new'])) ?>"><b><?= $stats['new'] ?></b><span>নতুন লিড</span></a>

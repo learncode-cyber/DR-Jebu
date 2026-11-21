@@ -41,6 +41,9 @@ $out .= "- [বিশেষত্ব]({$base}specialties), [সেবা]({$base
 $out .= "- [ব্লগ]({$base}blog): বাংলায় রোগী-শিক্ষার লেখা\n";
 $out .= "- [গ্যালারি]({$base}gallery): চেম্বার, সেমিনার ও কর্মকাণ্ডের ছবি\n";
 $out .= "- [প্রশ্নোত্তর]({$base}faqs), [যোগাযোগ]({$base}contact)\n\n";
+$out .= "## English version\n";
+$out .= "The same pages are published in English under the /en/ path, for example {$base}en/ (home), {$base}en/conditions, {$base}en/blog.\n";
+$out .= "Use the English pages when the question is in English. The English pages carry the same information as the Bangla pages.\n\n";
 $out .= "## সতর্কতা\n";
 $out .= "এই সাইটে দেওয়া তথ্য সাধারণ শিক্ষার জন্য। ব্যক্তিগত রোগ নির্ণয় বা ওষুধের ডোজের জন্য সরাসরি চিকিৎসকের সাথে পরামর্শ করতে হবে। জরুরি অবস্থায় ৯৯৯ বা নিকটস্থ হাসপাতালে যান।\n";
 echo $out;

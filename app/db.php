@@ -15,6 +15,9 @@ function db(): PDO {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
+    // Same clock as PHP (Asia/Dhaka, fixed UTC+6): NOW() and CURRENT_TIMESTAMP must agree with the
+    // PHP time windows used for rate limits, duplicate checks and statistics.
+    $pdo->exec("SET time_zone = '+06:00'");
     return $pdo;
 }
 

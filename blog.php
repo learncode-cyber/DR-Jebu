@@ -16,7 +16,7 @@ if ($cat !== '') {
 $total = (int) q_val("SELECT COUNT(*) FROM blog_posts WHERE $where", $params);
 $pages = max(1, (int) ceil($total / $per));
 $page = min($page, $pages);
-$posts = q_all("SELECT slug, title, excerpt, cover_image, category, published_at, body FROM blog_posts WHERE $where ORDER BY published_at DESC, id DESC LIMIT $per OFFSET " . (($page - 1) * $per), $params);
+$posts = localize_rows(q_all("SELECT slug, title, title_en, excerpt, excerpt_en, cover_image, category, published_at, body, body_en FROM blog_posts WHERE $where ORDER BY published_at DESC, id DESC LIMIT $per OFFSET " . (($page - 1) * $per), $params));
 
 $qs = static fn(array $extra): string => '/blog' . (($q = http_build_query(array_filter($extra, static fn($v) => $v !== '' && $v !== 1 && $v !== null))) ? '?' . $q : '');
 page_start([
@@ -30,29 +30,29 @@ page_hero('Blog', 'স্বাস্থ্য সচেতনতার ব্�
 ?>
 <section class="section"><div class="wrap">
 <?php if ($cats): ?>
-  <div class="filter-pills" role="navigation" aria-label="ক্যাটাগরি">
-    <a href="/blog" class="<?= $cat === '' ? 'on' : '' ?>">সব লেখা</a>
-<?php foreach ($cats as $c): ?><a href="<?= h($qs(['cat' => $c['category']])) ?>" class="<?= $cat === $c['category'] ? 'on' : '' ?>"><?= h($c['category']) ?> (<?= h(bn_num($c['n'])) ?>)</a><?php endforeach; ?>
+  <div class="filter-pills" role="navigation" aria-label="<?= h(ui('ক্যাটাগরি')) ?>">
+    <a href="/blog" class="<?= $cat === '' ? 'on' : '' ?>"><?= h(ui('সব লেখা')) ?></a>
+<?php foreach ($cats as $c): ?><a href="<?= h($qs(['cat' => $c['category']])) ?>" class="<?= $cat === $c['category'] ? 'on' : '' ?>"><?= h(ui($c['category'])) ?> (<?= h(site_lang() === 'en' ? (string) $c['n'] : bn_num($c['n'])) ?>)</a><?php endforeach; ?>
   </div>
 <?php endif; ?>
 <?php if (!$posts): ?>
-  <div class="empty"><p>এই বিভাগে এখনও কোনো লেখা প্রকাশিত হয়নি।</p><a class="btn btn-primary" href="/blog">সব লেখা দেখুন</a></div>
+  <div class="empty"><p><?= h(ui('এই বিভাগে এখনও কোনো লেখা প্রকাশিত হয়নি।')) ?></p><a class="btn btn-primary" href="/blog"><?= h(ui('সব লেখা দেখুন')) ?></a></div>
 <?php else: ?>
   <div class="grid c3">
 <?php foreach ($posts as $i => $p): ?>
     <a class="card reveal" href="/blog/<?= h($p['slug']) ?>" style="transition-delay:<?= ($i % 3) * 60 ?>ms">
-      <div class="card-img"><img src="<?= h(img_url($p['cover_image'])) ?>" alt="<?= h($p['title']) ?>" loading="lazy" width="800" height="500"></div>
-<?php if ($p['category'] !== ''): ?><span class="chip"><?= h($p['category']) ?></span><?php endif; ?>
+      <div class="card-img"><?= img_picture(img_url($p['cover_image']), $p['title'], 0, 0, '(max-width:620px) 100vw, (max-width:980px) 50vw, 33vw') ?></div>
+<?php if ($p['category'] !== ''): ?><span class="chip"><?= h(ui($p['category'])) ?></span><?php endif; ?>
       <h3><?= h($p['title']) ?></h3>
       <p><?= h(trim_text((string) $p['excerpt'], 150)) ?></p>
-      <span class="more"><?= h(bn_date($p['published_at'])) ?> · <?= h(bn_num(reading_minutes((string) $p['body']))) ?> মিনিট পড়া →</span>
+      <span class="more"><?= h(site_lang() === 'en' ? date('j F Y', strtotime((string) $p['published_at'])) : bn_date($p['published_at'])) ?> · <?= h(site_lang() === 'en' ? (string) max(1, reading_minutes((string) $p['body'])) : bn_num(reading_minutes((string) $p['body']))) ?> <?= h(ui('মিনিট পড়া')) ?> →</span>
     </a>
 <?php endforeach; ?>
   </div>
 <?php if ($pages > 1): ?>
   <nav class="pager" aria-label="পৃষ্ঠা">
 <?php for ($i = 1; $i <= $pages; $i++): ?>
-    <?php if ($i === $page): ?><span class="cur"><?= h(bn_num($i)) ?></span><?php else: ?><a href="<?= h($qs(['cat' => $cat, 'page' => $i])) ?>"><?= h(bn_num($i)) ?></a><?php endif; ?>
+    <?php $pgNum = site_lang() === 'en' ? (string) $i : bn_num($i); ?><?php if ($i === $page): ?><span class="cur"><?= h($pgNum) ?></span><?php else: ?><a href="<?= h($qs(['cat' => $cat, 'page' => $i])) ?>"><?= h($pgNum) ?></a><?php endif; ?>
 <?php endfor; ?>
   </nav>
 <?php endif; ?>

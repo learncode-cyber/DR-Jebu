@@ -62,7 +62,7 @@ if (is_post()) {
     $act = (string) ($_POST['act'] ?? '');
     if ($act === 'upload') {
         $err = '';
-        $new = save_upload('upfile', $err);
+        $new = save_upload('upfile', $err, trim((string) ($_POST['upfile_alt'] ?? '')));
         if ($err !== '') {
             flash('err', $err);
         } elseif ($new === null) {
@@ -131,7 +131,8 @@ admin_head('মিডিয়া লাইব্রেরি');
   <h2>নতুন ছবি আপলোড</h2>
   <form method="post" enctype="multipart/form-data" class="tools">
     <?= csrf_field() ?><input type="hidden" name="act" value="upload">
-    <input type="file" name="upfile" accept="image/jpeg,image/png,image/webp,image/gif" required>
+    <input type="file" name="upfile" accept="image/*,.heic,.heif,.tif,.tiff,.avif" required>
+    <input type="text" name="upfile_alt" maxlength="200" placeholder="ছবির বিবরণ (Alt Text, SEO) - ফাঁকা থাকলে আপনা-আপনি ফাইলের নাম থেকে">
     <button class="btn" type="submit">আপলোড</button>
   </form>
   <p class="muted">JPG, PNG, WEBP বা GIF; সর্বোচ্চ ১০MB। বড় ছবি স্বয়ংক্রিয়ভাবে ১৮০০px-এ ছোট হয়।</p>

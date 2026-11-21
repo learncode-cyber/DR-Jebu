@@ -85,6 +85,8 @@ function entities(): array {
                 ['name' => 'excerpt', 'label' => 'সারসংক্ষেপ', 'type' => 'textarea', 'max' => 500],
                 ['name' => 'body', 'label' => 'লেখা (ফরম্যাট, ছবি, গ্যালারি, টেবিল ও ভিডিও সরাসরি এডিটরে যোগ করুন)', 'type' => 'rich', 'required' => true],
                 ['name' => 'cover_image', 'label' => 'কভার ছবি', 'type' => 'image'],
+                ['name' => 'cover_source', 'label' => 'কভার ছবির উৎস', 'type' => 'select', 'options' => ['' => '— বাছুন —', 'owner' => 'নিজের লাইব্রেরি', 'licensed' => 'লাইসেন্সকৃত উৎস', 'ai_educational' => 'AI-তৈরি শিক্ষামূলক ছবি']],
+                ['name' => 'cover_credit', 'label' => 'ছবির সূত্র / ক্রেডিট', 'type' => 'text', 'max' => 200],
                 ['name' => 'meta_title', 'label' => 'SEO Title', 'type' => 'text', 'max' => 70],
                 ['name' => 'meta_description', 'label' => 'SEO Description', 'type' => 'text', 'max' => 170],
                 ['name' => 'focus_keyword', 'label' => 'Focus keyword', 'type' => 'text', 'max' => 120],
@@ -147,7 +149,7 @@ function entities(): array {
                 ['name' => 'location', 'label' => 'লোকেশন (ঠিকানা)', 'type' => 'textarea', 'max' => 400],
                 ['name' => 'visiting_hours', 'label' => 'বসার সময়', 'type' => 'text', 'max' => 200],
                 ['name' => 'phone', 'label' => 'ফোন (ঐচ্ছিক)', 'type' => 'text', 'max' => 30],
-                ['name' => 'map_link', 'label' => 'ম্যাপ লিংক (ঐচ্ছিক | খালি রাখলে ঠিকানা থেকে স্বয়ংক্রিয়ভাবে তৈরি হবে)', 'type' => 'text', 'max' => 400],
+                ['name' => 'map_link', 'label' => 'ম্যাপ লিংক (ঐচ্ছিক, খালি রাখলে ঠিকানা থেকে স্বয়ংক্রিয়ভাবে তৈরি হবে)', 'type' => 'text', 'max' => 400],
                 ['name' => 'sort_order', 'label' => 'সিরিয়াল নম্বর (ছোট নম্বর আগে দেখাবে)', 'type' => 'int'],
                 ['name' => 'is_active', 'label' => 'সক্রিয় (ওয়েবসাইটে দেখাবে)', 'type' => 'bool'],
             ],
@@ -180,6 +182,36 @@ function entities(): array {
             'relations' => [],
         ],
     ];
+    // English twins: every translatable field gets a "(English)" field right after it.
+    // Only columns that exist in app/database/jebu_medical_full.sql are listed.
+    $entFields = ['title', 'kicker', 'short_desc', 'overview_body', 'meta_title', 'meta_description'];
+    $enFields = [
+        'specialties' => $entFields,
+        'services' => $entFields,
+        'treatments' => $entFields,
+        'procedures' => $entFields,
+        'conditions' => array_merge($entFields, ['symptoms_body', 'causes_body', 'diagnosis_body']),
+        'blog_posts' => ['title', 'excerpt', 'meta_title', 'meta_description', 'tags'],
+        'faqs' => ['question', 'answer'],
+        'chambers' => ['name', 'location', 'visiting_hours'],
+    ];
+    foreach ($E as $k => $e) {
+        if (!isset($enFields[$e['table']])) {
+            continue;
+        }
+        $out = [];
+        foreach ($e['fields'] as $f) {
+            $out[] = $f;
+            if (in_array($f['name'], $enFields[$e['table']], true) && in_array($f['type'], ['text', 'textarea', 'md'], true)) {
+                $g = $f;
+                $g['name'] = $f['name'] . '_en';
+                $g['label'] = $f['label'] . ' (English)';
+                unset($g['required']);
+                $out[] = $g;
+            }
+        }
+        $E[$k]['fields'] = $out;
+    }
     return $E;
 }
 
@@ -203,15 +235,15 @@ function entity_rows(string $key, int $limit = 0): array {
     if ($limit > 0) {
         $sql .= ' LIMIT ' . $limit;
     }
-    return q_all($sql);
+    return localize_rows(q_all($sql));
 }
 
 /** Linked rows through a junction table (only active ones). */
 function entity_related(string $junction, string $selfCol, int $selfId, string $otherCol, string $otherTable): array {
-    return q_all(
+    return localize_rows(q_all(
         'SELECT t.* FROM ' . $otherTable . ' t JOIN ' . $junction . ' j ON j.' . $otherCol . ' = t.id WHERE j.' . $selfCol . ' = ? AND t.is_active = 1 ORDER BY t.sort_order ASC, t.id ASC',
         [$selfId]
-    );
+    ));
 }
 
 function youtube_id(string $in): string {

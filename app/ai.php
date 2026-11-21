@@ -52,9 +52,31 @@ function gemini_model(): string {
     return $m !== '' ? $m : 'gemini-2.5-flash';
 }
 
-function ai_enabled(): bool { return gemini_key() !== ''; }
+function ai_enabled(): bool {
+    gem_tables();
+    return gemini_key() !== '' || gem_pick_cred(gem_active_project()) !== null;
+}
+
+/** English system prompt, used when the visitor chose EN. */
+function ai_system_prompt_en(): string {
+    $doc = setting('doctor_title_en') . ' ' . setting('doctor_name_en');
+    $place = s_tr('workplace');
+    $hours = s_tr('chamber_hours');
+    $addr = setting('chamber_address');
+    $phone = setting('phone_display');
+    return "You are the AI assistant on the website of {$doc}, who works at {$place}. Always reply in simple, polite English. If the patient writes in Bangla, reply in Bangla.\n\n"
+        . "Chamber: " . ($addr !== '' ? $addr : 'see the website for the address') . "\n"
+        . "Hours: {$hours}\nPhone: {$phone}\n\n"
+        . "Rules:\n"
+        . "1. You do not diagnose, and you do not give medicine names, doses or treatment decisions. You may give general information and say when the patient should see a doctor.\n"
+        . "2. If there are emergency signs (chest pain, heavy bleeding, breathing difficulty, severe abdominal pain, bleeding in pregnancy and similar), tell the patient at once to call 999 or go to the nearest hospital.\n"
+        . "3. To book an appointment, ask for the name, mobile number, preferred date (if any) and the problem or service. Call create_appointment only after the patient has confirmed all the details.\n"
+        . "4. If the function succeeds, give the patient the request number and say that the chamber will confirm the time by phone.\n"
+        . "5. Ask for personal details (name, mobile) only when they are needed for an appointment.";
+}
 
 function ai_system_prompt(): string {
+    if (site_lang() === 'en') { return ai_system_prompt_en(); }
     $doc = setting('doctor_name_bn');
     $place = setting('workplace');
     $hours = setting('chamber_hours');
@@ -71,7 +93,28 @@ function ai_system_prompt(): string {
         . "5. ব্যক্তিগত তথ্য (মোবাইল, নাম) শুধু অ্যাপয়েন্টমেন্টের প্রয়োজনেই চাইবে।";
 }
 
+/** English tool description for the model, used when the visitor chose EN. */
+function ai_tool_declarations_en(): array {
+    return [[
+        'functionDeclarations' => [[
+            'name' => 'create_appointment',
+            'description' => 'Creates an appointment request with the patient consent and sends it to the chamber. Call only when the name and mobile number are confirmed.',
+            'parameters' => [
+                'type' => 'OBJECT',
+                'properties' => [
+                    'name' => ['type' => 'STRING', 'description' => "The patient's name"],
+                    'phone' => ['type' => 'STRING', 'description' => 'Mobile number'],
+                    'preferred_date' => ['type' => 'STRING', 'description' => 'Preferred date (YYYY-MM-DD), empty if not known'],
+                    'service_interest' => ['type' => 'STRING', 'description' => 'Short description of the problem or service'],
+                ],
+                'required' => ['name', 'phone'],
+            ],
+        ]],
+    ]];
+}
+
 function ai_tool_declarations(): array {
+    if (site_lang() === 'en') { return ai_tool_declarations_en(); }
     return [[
         'functionDeclarations' => [[
             'name' => 'create_appointment',
@@ -90,24 +133,58 @@ function ai_tool_declarations(): array {
     ]];
 }
 
-/** Calls Gemini generateContent. Returns decoded JSON or null on failure. */
+/**
+ * Every direct Gemini call goes through here (chat, Facebook post generator, clinical helpers).
+ * It uses the Gemini credential manager (project ledger, quota blocks, daily cap) and the privacy guard.
+ * Patient text is never sent: a blocked message returns null and sets $GLOBALS['gem_last_block'].
+ */
 function gemini_generate(array $body): ?array {
-    if (!function_exists('curl_init')) { return null; }
-    $ch = curl_init('https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode(gemini_model()) . ':generateContent');
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 25, CURLOPT_CONNECTTIMEOUT => 5,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'x-goog-api-key: ' . gemini_key()],
-        CURLOPT_POSTFIELDS => json_encode($body, JSON_UNESCAPED_UNICODE),
-    ]);
-    $res = curl_exec($ch);
-    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    if ($res === false || $code !== 200) {
-        error_log('[jebu] gemini HTTP ' . $code);
+    gem_tables();
+    unset($GLOBALS['gem_last_block']);
+    $sent = '';
+    foreach (($body['contents'] ?? []) as $c) {
+        foreach (($c['parts'] ?? []) as $p) { $sent .= ' ' . (string) ($p['text'] ?? ''); }
+    }
+    [$safe, $why] = gem_guard($sent);
+    if (!$safe) {
+        $GLOBALS['gem_last_block'] = $why;
+        gem_log('warn', 'privacy_block', '', '', 0, $why . ' (direct call)');
         return null;
     }
-    $json = json_decode((string) $res, true);
-    return is_array($json) ? $json : null;
+    $project = gem_active_project();
+    $cred = $project !== '' ? gem_pick_cred($project) : null;
+    if ($cred !== null) {
+        $key = gem_plain_key($cred);
+    } else {
+        $key = gemini_key();
+        $project = $project !== '' ? $project : 'legacy-setting';
+    }
+    if ($key === '') { return null; }
+    $model = gemini_model();
+    if (gem_requests_today($project) >= (int) setting('gemini_daily_cap', '200')) {
+        gem_log('warn', 'cap', $project, $model, 0, 'daily safety cap (direct call)');
+        return null;
+    }
+    if (gem_block_until($project, $model) !== null) { return null; }
+    [$code, $headers, $raw, $err] = gem_http('POST', GEM_BASE . '/models/' . rawurlencode($model) . ':generateContent', $body, $key);
+    $c = gem_classify($code, $headers, $raw, $err);
+    gem_log($c['kind'] === 'ok' ? 'info' : 'warn', 'call', $project, $model, $code, $c['kind'] === 'ok' ? 'direct' : $c['kind'] . ': ' . $c['message']);
+    if ($c['kind'] === 'ok') {
+        $j = json_decode($raw, true);
+        gem_usage_add($project, $model, true, (int) ($j['usageMetadata']['promptTokenCount'] ?? 0), (int) ($j['usageMetadata']['candidatesTokenCount'] ?? 0), '');
+        return is_array($j) ? $j : null;
+    }
+    if ($c['kind'] === 'rate_daily') {
+        gem_usage_add($project, $model, false, 0, 0, 'daily');
+        gem_block($project, $model, 'daily', gem_next_pt_midnight(), 'daily quota');
+    } elseif ($c['kind'] === 'rate_minute' || $c['kind'] === 'rate_unknown') {
+        gem_usage_add($project, $model, false, 0, 0, 'minute');
+        gem_block($project, $model, 'minute', gem_plus(gem_backoff(1, $c['retry_after'])), 'per-minute limit');
+    } else {
+        gem_usage_add($project, $model, false, 0, 0, '');
+    }
+    error_log('[jebu] gemini ' . $c['kind'] . ' HTTP ' . $code);
+    return null;
 }
 
 function ai_transcript_text(array $history, int $leadId): string {
@@ -149,7 +226,7 @@ function ai_book(array $args, array $history): array {
  */
 function ai_chat_turn(array $messages): array {
     if (!ai_enabled()) {
-        return ['ok' => false, 'reply' => '', 'error' => 'এআই সহকারী এখন চালু নেই। অনুগ্রহ করে অ্যাপয়েন্টমেন্ট বা হোয়াটসঅ্যাপ ব্যবহার করুন।'];
+        return ['ok' => false, 'reply' => '', 'error' => tr('এআই সহকারী এখন চালু নেই। অনুগ্রহ করে অ্যাপয়েন্টমেন্ট বা হোয়াটসঅ্যাপ ব্যবহার করুন।', 'The AI assistant is not available right now. Please use the appointment form or WhatsApp.')];
     }
     $history = [];
     foreach (array_slice($messages, -20) as $m) {
@@ -159,7 +236,7 @@ function ai_chat_turn(array $messages): array {
         if ($text !== '') { $history[] = ['role' => $role, 'text' => $text]; }
     }
     if (!$history || end($history)['role'] !== 'user') {
-        return ['ok' => false, 'reply' => '', 'error' => 'একটি প্রশ্ন লিখুন।'];
+        return ['ok' => false, 'reply' => '', 'error' => tr('একটি প্রশ্ন লিখুন।', 'Please type a question.')];
     }
 
     $contents = [];
@@ -175,8 +252,11 @@ function ai_chat_turn(array $messages): array {
             'generationConfig' => ['temperature' => 0.4, 'maxOutputTokens' => 700],
         ]);
         $parts = $resp['candidates'][0]['content']['parts'] ?? null;
+        if (!is_array($parts) && !empty($GLOBALS['gem_last_block'])) {
+            return ['ok' => false, 'reply' => '', 'error' => tr('আপনার বার্তায় ব্যক্তিগত তথ্য (যেমন ফোন নম্বর, ইমেইল বা রোগীর নাম) থাকতে পারে। নিরাপত্তার জন্য সেটি এআইতে পাঠানো হয়নি। অ্যাপয়েন্টমেন্টের জন্য এই ফর্মটি ব্যবহার করুন: ' . abs_url('/appointment') . ' ', 'For your privacy, your message was not sent to the AI. To book, please use this form: ' . abs_url('/appointment') . ' ')];
+        }
         if (!is_array($parts)) {
-            return ['ok' => false, 'reply' => '', 'error' => 'এআই সহকারী এখন উত্তর দিতে পারছে না। একটু পরে আবার চেষ্টা করুন, অথবা অ্যাপয়েন্টমেন্ট/হোয়াটসঅ্যাপ ব্যবহার করুন।'];
+            return ['ok' => false, 'reply' => '', 'error' => tr('এআই সহকারী এখন উত্তর দিতে পারছে না। একটু পরে আবার চেষ্টা করুন, অথবা অ্যাপয়েন্টমেন্ট/হোয়াটসঅ্যাপ ব্যবহার করুন।', 'The AI assistant cannot answer right now. Please try again shortly, or use the appointment form or WhatsApp.')];
         }
         $call = null;
         $text = '';
@@ -196,5 +276,5 @@ function ai_chat_turn(array $messages): array {
             return ['ok' => true, 'reply' => trim($text), 'lead_id' => $leadId, 'error' => ''];
         }
     }
-    return ['ok' => false, 'reply' => '', 'error' => 'উত্তর তৈরি করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।'];
+    return ['ok' => false, 'reply' => '', 'error' => tr('উত্তর তৈরি করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।', 'Could not create an answer. Please try again.')];
 }

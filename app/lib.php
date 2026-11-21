@@ -44,22 +44,98 @@ function img_url(?string $path, string $fallback = '/assets/img/placeholder.svg'
     return $fallback;
 }
 
+/**
+ * Responsive WebP renditions of an image: ['400' => url, '800' => url, '1600' => url], or [] when they do not exist.
+ * Uploads that were stored before this system get their renditions created on first use (once).
+ */
+function img_variants(string $url): array {
+    $path = strtok($url, '?') ?: '';
+    if (preg_match('#^/(uploads|assets/img)/([A-Za-z0-9._-]+)\.(?:jpe?g|png|webp|gif)$#i', $path, $m) !== 1) {
+        return [];
+    }
+    $dirPart = $m[1];
+    $name = $m[2];
+    $base = WEB_ROOT . '/' . $dirPart . '/' . $name;
+    $generated = preg_match('/-(400|800|1600)$/', $name) === 1; // already a rendition: never make renditions of renditions
+    $have = static fn(): bool => array_reduce(IMG_VARIANT_WIDTHS, static fn(bool $ok, int $w) => $ok && is_file($base . '-' . $w . '.webp'), true);
+    // Renditions are rebuilt when the source file is newer than them (a replaced photo must not keep its old WebP).
+    $src = $base . '.' . strtolower((string) pathinfo($path, PATHINFO_EXTENSION));
+    $stale = false;
+    if ($dirPart === 'uploads' && !$generated && $have() && is_file($src)) {
+        $oldest = min(array_map(static fn(int $w): int => (int) @filemtime($base . '-' . $w . '.webp'), IMG_VARIANT_WIDTHS));
+        $stale = (int) @filemtime($src) > $oldest;
+    }
+    if ((!$have() || $stale) && $dirPart === 'uploads' && !$generated) {
+        try {
+            make_webp_variants($src, $base);
+        } catch (Throwable $e) {
+            error_log('[jebu] img_variants: ' . $e->getMessage());
+        }
+    }
+    if (!$have()) {
+        return [];
+    }
+    $out = [];
+    foreach (IMG_VARIANT_WIDTHS as $w) {
+        $out[(string) $w] = '/' . $dirPart . '/' . $name . '-' . $w . '.webp';
+    }
+    return $out;
+}
+
+/**
+ * Responsive <picture>: WebP srcset (400/800/1600 w) with the original as the fallback <img>.
+ * Pass 0 for width/height to read the real size of the file (keeps layout stable, no CLS).
+ * Only images that are not the LCP image should be lazy; pass $lazy = false for the hero photo.
+ */
+function img_picture(string $url, string $alt, int $width = 0, int $height = 0, string $sizes = '100vw', bool $lazy = true, string $extra = ''): string {
+    if ($alt === '' && str_starts_with($url, '/uploads/')) {
+        $alt = img_alt_for($url); // admin's alt text (or the auto one from the title)
+    }
+    if ($width <= 0 || $height <= 0) {
+        $file = WEB_ROOT . strtok($url, '?');
+        $dim = is_file($file) ? @getimagesize($file) : false;
+        if ($dim) {
+            [$width, $height] = [$dim[0], $dim[1]];
+        }
+    }
+    $img = '<img src="' . h($url) . '" alt="' . h($alt) . '"'
+        . ($width > 0 ? ' width="' . $width . '" height="' . $height . '"' : '')
+        . ' decoding="async"' . ($lazy ? ' loading="lazy"' : '') . $extra . '>';
+    $v = img_variants($url);
+    if (!$v) {
+        return $img;
+    }
+    // Do not offer renditions wider than the real image (keeps the srcset honest); keep at least the smallest
+    $set = [];
+    foreach ($v as $w => $u) {
+        if ($width > 0 && (int) $w > $width && $set !== []) {
+            break;
+        }
+        $set[] = h($u) . ' ' . $w . 'w';
+    }
+    return '<picture><source type="image/webp" srcset="' . implode(', ', $set) . '" sizes="' . h($sizes) . '">' . $img . '</picture>';
+}
+
 // ---------------- Settings ----------------
 function settings_all(): array {
-    static $cache = null;
-    if ($cache !== null) {
-        return $cache;
+    // Kept in a global so save_setting() can update it: a value saved in this request is read back at once.
+    if (isset($GLOBALS['settings_cache'])) {
+        return $GLOBALS['settings_cache'];
     }
     $cache = site_defaults();
     try {
+        sec_migrate_settings(); // one-time: plain-text secrets become encrypted rows
         foreach (q_all('SELECT skey, svalue FROM site_settings') as $r) {
             if ($r['svalue'] !== '') {
-                $cache[$r['skey']] = $r['svalue'];
+                $cache[$r['skey']] = sec_is_secret_setting((string) $r['skey'])
+                    ? sec_decrypt((string) $r['svalue'])
+                    : $r['svalue'];
             }
         }
     } catch (Throwable $e) {
         // DB not ready: fall back to defaults so the page can still render
     }
+    $GLOBALS['settings_cache'] = $cache;
     return $cache;
 }
 function setting(string $key, string $default = ''): string {
@@ -73,11 +149,19 @@ function setting_paras(string $key): array {
     return array_values(array_filter(array_map('trim', preg_split('/\R{2,}/u', setting($key)) ?: []), static fn($l) => $l !== ''));
 }
 function save_setting(string $key, string $value): void {
+    $plain = $value;
+    if (sec_is_secret_setting($key)) {
+        $value = sec_encrypt($value); // secrets are never stored in plain text
+    }
     $exists = q_val('SELECT COUNT(*) FROM site_settings WHERE skey = ?', [$key]);
     if ((int) $exists > 0) {
         q_exec('UPDATE site_settings SET svalue = ?, updated_at = ? WHERE skey = ?', [$value, date('Y-m-d H:i:s'), $key]);
     } else {
         q_exec('INSERT INTO site_settings (skey, svalue) VALUES (?, ?)', [$key, $value]);
+    }
+    // Keep this request's cache in step with the database (plain value; secrets are decrypted for reads).
+    if (isset($GLOBALS['settings_cache'])) {
+        $GLOBALS['settings_cache'][$key] = $plain;
     }
 }
 
@@ -119,7 +203,7 @@ function md(?string $text): string {
         if (str_starts_with($b, '## '))  { $out .= '<h2>' . inline_md(substr($b, 3)) . '</h2>'; continue; }
         // A block that is only an image: ![alt](/uploads/file.jpg) or ![alt](https://...)
         if (preg_match('/^!\[([^\]]*)\]\(((?:\/|https:\/\/)[^)\s]+)\)$/u', $b, $im) === 1) {
-            $out .= '<figure class="inline-img"><img src="' . h($im[2]) . '" alt="' . h($im[1]) . '" loading="lazy" decoding="async"></figure>';
+            $out .= '<figure class="inline-img">' . img_picture($im[2], $im[1], 0, 0, '(max-width:720px) 100vw, 720px') . '</figure>';
             continue;
         }
         $lines = preg_split('/\R/u', $b) ?: [];
@@ -150,6 +234,20 @@ function reading_minutes(string $text): int {
 function trim_text(string $s, int $len): string {
     $s = trim(preg_replace('/\s+/u', ' ', strip_tags($s)) ?? '');
     return mb_strlen($s) > $len ? rtrim(mb_substr($s, 0, $len - 1)) . '…' : $s;
+}
+
+/** Like trim_text(), but cuts at a word boundary when one is near the limit (used for <title>). */
+function trim_words(string $s, int $len): string {
+    $s = trim(preg_replace('/\s+/u', ' ', strip_tags($s)) ?? '');
+    if (mb_strlen($s) <= $len) {
+        return $s;
+    }
+    $cut = mb_substr($s, 0, $len - 1);
+    $sp = mb_strrpos($cut, ' ');
+    if ($sp !== false && $sp >= (int) ($len * 0.6)) {
+        $cut = mb_substr($cut, 0, $sp);
+    }
+    return rtrim($cut, " |,:;-") . '…';
 }
 
 function slugify(string $s): string {
@@ -269,7 +367,7 @@ function specialty_icon_svg(string $slug): string {
 function chamber_rows(): array {
     static $rows = null;
     if ($rows === null) {
-        try { $rows = q_all('SELECT * FROM chambers WHERE is_active = 1 ORDER BY sort_order ASC, id ASC'); }
+        try { $rows = localize_rows(q_all('SELECT * FROM chambers WHERE is_active = 1 ORDER BY sort_order ASC, id ASC')); }
         catch (Throwable $e) { $rows = []; }
     }
     return $rows;
@@ -291,12 +389,12 @@ function chamber_cards_html(): string {
     foreach ($rows as $c) {
         $map = chamber_map_link($c);
         $out .= '<article class="chamber-card reveal">'
-            . '<span class="ch-no" aria-label="সিরিয়াল ' . (int) $c['sort_order'] . '">' . h(bn_num((int) $c['sort_order'])) . '</span>'
+            . '<span class="ch-no" aria-label="' . h(tr('সিরিয়াল ', 'Serial ')) . (int) $c['sort_order'] . '">' . h(site_lang() === 'en' ? (string) (int) $c['sort_order'] : bn_num((int) $c['sort_order'])) . '</span>'
             . '<h3>' . h((string) $c['name']) . '</h3>';
         if (trim((string) $c['location']) !== '') { $out .= '<p class="ch-loc">' . nl2br(h((string) $c['location']), false) . '</p>'; }
-        if (trim((string) $c['visiting_hours']) !== '') { $out .= '<p><b>সময়:</b> ' . h((string) $c['visiting_hours']) . '</p>'; }
-        if (trim((string) $c['phone']) !== '') { $out .= '<p><b>ফোন:</b> <a href="tel:' . h(preg_replace('/[^0-9+]/', '', (string) $c['phone'])) . '">' . h((string) $c['phone']) . '</a></p>'; }
-        if ($map !== '') { $out .= '<a class="ch-map" href="' . h($map) . '" target="_blank" rel="noopener">ম্যাপে দেখুন ↗</a>'; }
+        if (trim((string) $c['visiting_hours']) !== '') { $out .= '<p><b>' . h(tr('সময়:', 'Hours:')) . '</b> ' . h((string) $c['visiting_hours']) . '</p>'; }
+        if (trim((string) $c['phone']) !== '') { $out .= '<p><b>' . h(tr('ফোন:', 'Phone:')) . '</b> <a href="tel:' . h(preg_replace('/[^0-9+]/', '', (string) $c['phone'])) . '">' . h((string) $c['phone']) . '</a></p>'; }
+        if ($map !== '') { $out .= '<a class="ch-map" href="' . h($map) . '" target="_blank" rel="noopener">' . h(tr('ম্যাপে দেখুন ↗', 'View on map ↗')) . '</a>'; }
         $out .= '</article>';
     }
     return $out . '</div>';

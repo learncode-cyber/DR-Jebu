@@ -22,13 +22,25 @@
     });
   }
   $$('.sub-btn').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var li = b.parentNode, o = li.classList.toggle('open');
+    b.addEventListener('click', function (ev) {
+      var li = b.parentNode;
+      // Only one menu open at a time: close the others first, so two mega panels never stack
+      $$('.has-sub.open').forEach(function (l) { if (l !== li) { l.classList.remove('open'); var ob = l.querySelector('.sub-btn'); if (ob) { ob.setAttribute('aria-expanded', 'false'); } } });
+      var o = li.classList.toggle('open');
       b.setAttribute('aria-expanded', o ? 'true' : 'false');
+      // Mouse clicks leave focus on the button, which would keep the panel open after the pointer leaves
+      if (ev.detail > 0) { b.blur(); }
     });
   });
   d.addEventListener('click', function (e) {
     if (!e.target.closest('.has-sub')) { $$('.has-sub.open').forEach(function (l) { l.classList.remove('open'); }); }
+  });
+
+  // Hovering another menu closes the one that was opened by a click, so two panels never overlap
+  $$('.has-sub').forEach(function (li) {
+    li.addEventListener('mouseenter', function () {
+      $$('.has-sub.open').forEach(function (l) { if (l !== li) { l.classList.remove('open'); } });
+    });
   });
 
   // Reveal on scroll
@@ -108,93 +120,45 @@
   });
 })();
 
-/* Statistics: count up from 0 when the numbers scroll into view (Bangla digits) */
+/* Statistics: cards rise in one after another, numbers count up, the bar fills and the '+' pops (Bangla digits) */
 (function () {
-  var items = Array.prototype.slice.call(document.querySelectorAll('.stat .cnt[data-count]'));
-  if (!items.length) { return; }
+  var tiles = Array.prototype.slice.call(document.querySelectorAll('.stat'));
+  var wrap = document.querySelector('.stats');
+  if (!wrap || !tiles.length || !tiles[0].querySelector('.cnt[data-count]')) { return; }
   var BN = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-  var toBn = function (n) { return String(n).replace(/\d/g, function (d) { return BN[+d]; }); };
+  var isEn = document.documentElement.lang === 'en';
+  var toBn = function (n) { return isEn ? String(n) : String(n).replace(/\d/g, function (d) { return BN[+d]; }); };
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var run = function (el) {
+  var easeOutExpo = function (p) { return p === 1 ? 1 : 1 - Math.pow(2, -10 * p); };
+  var pop = function (tile) {
+    var s = tile.querySelector('.sfx'); if (!s) { return; }
+    s.classList.add('pop'); setTimeout(function () { s.classList.remove('pop'); }, 300);
+  };
+  var show = function (tile, i) {
+    tile.style.setProperty('--d', (i * 150) + 'ms');
+    tile.classList.add('in');
+    var el = tile.querySelector('.cnt');
     var to = parseInt(el.getAttribute('data-count'), 10) || 0;
     if (reduce || !window.requestAnimationFrame) { el.textContent = toBn(to); return; }
-    var t0 = null, dur = 1400;
     el.textContent = toBn(0);
-    var step = function (ts) {
-      if (t0 === null) { t0 = ts; }
-      var p = Math.min(1, (ts - t0) / dur);
-      el.textContent = toBn(Math.round(to * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) { window.requestAnimationFrame(step); }
-    };
-    window.requestAnimationFrame(step);
+    setTimeout(function () {
+      var t0 = null, dur = 1800;
+      var step = function (ts) {
+        if (t0 === null) { t0 = ts; }
+        var p = Math.min(1, (ts - t0) / dur);
+        el.textContent = toBn(p < 1 ? Math.floor(easeOutExpo(p) * to) : to);
+        if (p < 1) { window.requestAnimationFrame(step); } else { pop(tile); }
+      };
+      window.requestAnimationFrame(step);
+    }, i * 150 + 100);
   };
-  if (!('IntersectionObserver' in window)) { items.forEach(run); return; }
+  var playAll = function () { tiles.forEach(function (t, i) { show(t, i); }); };
+  // Tiles stay hidden until the section is seen, but only when JavaScript runs
+  document.body.classList.add('js-stats');
+  if (!('IntersectionObserver' in window)) { playAll(); return; }
   var io = new IntersectionObserver(function (entries) {
-    entries.forEach(function (en) { if (en.isIntersecting) { run(en.target); io.unobserve(en.target); } });
-  }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
-  items.forEach(function (el) { el.textContent = toBn(0); io.observe(el); });
+    if (entries.some(function (en) { return en.isIntersecting; })) { io.disconnect(); playAll(); }
+  }, { threshold: 0.2 });
+  io.observe(wrap);
 })();
 
-/* Sticky action buttons: drag to move; position is remembered in this browser */
-(function () {
-  var box = document.getElementById('stickyActions');
-  var grip = document.getElementById('saGrip');
-  if (!box || !grip) { return; }
-  /* The moved position lasts for this page view only: a reload puts the buttons back in their default place.
-     An older saved position from before this change is removed here. */
-  var KEY = 'jebu_sa_pos';
-  try { window.localStorage.removeItem(KEY); } catch (e) {}
-  var saved = null;
-  var place = function (x, y) {
-    var r = box.getBoundingClientRect();
-    x = Math.max(6, Math.min(x, window.innerWidth - r.width - 6));
-    y = Math.max(6, Math.min(y, window.innerHeight - r.height - 6));
-    box.style.left = x + 'px'; box.style.top = y + 'px'; box.style.right = 'auto'; box.style.bottom = 'auto';
-    return { x: x, y: y };
-  };
-  var reset = function () {
-    box.style.left = ''; box.style.top = ''; box.style.right = ''; box.style.bottom = '';
-    saved = null;
-  };
-  if (saved) { place(saved.x, saved.y); }
-  var drag = null, moved = false, suppressClick = false;
-  var startDrag = function (e) {
-    var r = box.getBoundingClientRect();
-    drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, sx: e.clientX, sy: e.clientY };
-    moved = false;
-  };
-  box.addEventListener('pointerdown', function (e) {
-    if (e.button !== undefined && e.button !== 0) { return; }
-    startDrag(e);
-  });
-  box.addEventListener('pointermove', function (e) {
-    if (!drag) { return; }
-    if (!moved) {
-      if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) < 8) { return; }
-      moved = true;
-      box.classList.add('dragging');
-      try { box.setPointerCapture(e.pointerId); } catch (err) {}
-    }
-    e.preventDefault();
-    place(e.clientX - drag.dx, e.clientY - drag.dy);
-  });
-  var end = function () {
-    if (!drag) { return; }
-    var wasMoved = moved;
-    drag = null; moved = false;
-    box.classList.remove('dragging');
-    if (wasMoved) {
-      suppressClick = true;
-      var r = box.getBoundingClientRect();
-      saved = { x: r.left, y: r.top };
-    }
-  };
-  box.addEventListener('pointerup', end);
-  box.addEventListener('pointercancel', end);
-  // a drag must not also open a button
-  box.addEventListener('click', function (e) {
-    if (suppressClick) { e.preventDefault(); e.stopPropagation(); suppressClick = false; }
-  }, true);
-  grip.addEventListener('dblclick', reset);
-  window.addEventListener('resize', function () { if (saved) { var p = place(saved.x, saved.y); saved = p; } });
-})();

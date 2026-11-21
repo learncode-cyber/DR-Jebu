@@ -243,3 +243,36 @@ function seo_content_issues(): array {
     usort($out['items'], static fn($a, $b) => [$a['worst'] === 'warn' ? 0 : 1] <=> [$b['worst'] === 'warn' ? 0 : 1]);
     return $out;
 }
+
+/**
+ * One-time data fix (v107): two records had the same search title, so Google sees duplicate titles.
+ * Changes only a title that still holds the duplicate value; an owner-edited title is never touched.
+ */
+function seo_migrate_v107(): void {
+    if (setting('seo_titles_v107') === '1') {
+        return;
+    }
+    q_exec(
+        "UPDATE services SET meta_title = ? WHERE slug = 'womens-lifespan-care' AND meta_title <> '' "
+        . "AND meta_title = (SELECT meta_title FROM specialties WHERE slug = 'lifespan-womens-care' LIMIT 1)",
+        ['কিশোরী থেকে মেনোপজ পরিচর্যা ও পরামর্শ']
+    );
+    save_setting('seo_titles_v107', '1');
+}
+
+/**
+ * One-time data fix (v121): v107 did not change the service page, because its condition needed a non-empty
+ * title and the audit still found the same title on both women's care pages. This one also covers an empty title
+ * and only changes a title that still equals the specialty page's title. Owner-edited titles are never touched.
+ */
+function seo_migrate_v121(): void {
+    if (setting('seo_titles_v121') === '1') {
+        return;
+    }
+    q_exec(
+        "UPDATE services SET meta_title = ? WHERE slug = 'womens-lifespan-care' "
+        . "AND (meta_title IS NULL OR meta_title = '' OR meta_title = (SELECT meta_title FROM specialties WHERE slug = 'lifespan-womens-care' LIMIT 1))",
+        ['নারী স্বাস্থ্য সেবা: কিশোরী থেকে মেনোপজ পর্যন্ত | ডাঃ জেবুন্নেসা জেবু']
+    );
+    save_setting('seo_titles_v121', '1');
+}
