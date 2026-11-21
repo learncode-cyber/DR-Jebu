@@ -1,0 +1,33 @@
+{
+  "id": "/",
+  "name": "ডাঃ জেবুন্নেসা জেবু, অ্যাপয়েন্টমেন্ট",
+  "short_name": "ডাঃ জেবু",
+  "description": "স্ত্রী রোগ, প্রসূতি ও বন্ধ্যাত্ব বিশেষজ্ঞ, অ্যাপয়েন্টমেন্ট ও স্বাস্থ্য তথ্য।",
+  "lang": "bn",
+  "dir": "ltr",
+  "start_url": "/?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fdf5f9",
+  "theme_color": "#801B4B",
+  "icons": [
+    { "src": "/assets/img/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "অ্যাপয়েন্টমেন্ট নিন",
+      "short_name": "অ্যাপয়েন্টমেন্ট",
+      "url": "/appointment?source=app",
+      "icons": [{ "src": "/assets/img/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "রোগ ও চিকিৎসা",
+      "short_name": "রোগ ও চিকিৎসা",
+      "url": "/conditions?source=app",
+      "icons": [{ "src": "/assets/img/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
